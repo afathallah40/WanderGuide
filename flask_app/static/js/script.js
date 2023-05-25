@@ -1,27 +1,59 @@
 async function saveDays(event, trip_id) {
     event.preventDefault();
-    let formData = new FormData();
+    // Reset flash messages to hide any previous messages
+    resetFlashMessage();
+    let form_json = {};
     let forms = document.getElementsByClassName("day_form");
 
     Array.from(forms).forEach((form, index) => {
         let dayData = new FormData(form);
-        formData.append(`form${index+1}`, dayData);
+        // initialize object for each day
+        form_json[index] = {};
+        // add form data to form json
+        for (let [key, value] of dayData.entries()) {
+            form_json[index][key] = value;
+        }
     });
+    // That would create an object like this:
+    // {
+    //     0: {
+    //         day_theme: "Day 1",
+    //         location: "Tokyo",
+    //         activity: "Go to Shibuya"
+    //     },
+    //     1: {
+    //         day_theme: "Day 2",
+    //         location: "Tokyo",
+    //         activity: "Go to Shinjuku"
+    //     }
+    // }
 
     const response = await fetch(`/add_days/${trip_id}`, {
             method: 'POST', 
-            body: formData
+            body: JSON.stringify(form_json),
+            headers: {
+                // Specifiy that we are sending JSON
+                'Content-Type': 'application/json'
+            }
         }); 
 
     const data = await response.json();
-    if (data.message == "Error") {
+    if ("errors" in data) {
         resetFlashMessage();
-        showFlashMessage('Description of Day, Location, and/or Activity must be at least 2 characters.');
+        // Loop through the errors and display them in a flash message
+        let errorsHTML = "";
+        for(let error of Object.values(data.errors)) {
+            errorsHTML += `<p>${error}</p>`;
+        }
+        showFlashMessage(errorsHTML);
         window.location.href = "#top";
     }
-    else if (data.message == "Day Added") {
+    else if ("success" in data && data.success) {
         window.location.href = 'http://127.0.0.1:5001/profile';
+    } else {
+        showFlashMessage("Something went wrong. Please try again.");
     }
+    
     //     .then(response => response.json())
     //     .then(data => {
     //         console.log(data.message);
@@ -53,7 +85,7 @@ function showFlashMessage(message) {
     let flashMessagesContainer = document.getElementById('errorMessages');
     flashMessagesContainer.classList.remove("hidden");
     let flashMessageElement = document.createElement('p');
-    flashMessageElement.textContent = message;
+    flashMessageElement.innerHTML = message;
     flashMessagesContainer.appendChild(flashMessageElement);
 }
 
